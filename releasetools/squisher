@@ -25,6 +25,8 @@ fi
 
 if [ "$TARGET_BUILD_TYPE" = "debug" ]; then
     OTAPACKAGE=$OUT/${TARGET_PRODUCT}_debug-ota-$TARGET_BUILD_VARIANT.$USER.zip
+elif [ "$TARGET_BUILD_VARIANT" = "userdebug" ]; then
+    OTAPACKAGE=$OUT/$TARGET_PRODUCT-ota-eng.$USER.zip
 else
     OTAPACKAGE=$OUT/$TARGET_PRODUCT-ota-$TARGET_BUILD_VARIANT.$USER.zip
 fi
@@ -33,7 +35,7 @@ if [ ! -f "$OTAPACKAGE" ]; then
 	exit 1
 fi
 
-OPTICHARGER=$ANDROID_BUILD_TOP/vendor/cyanogen/tools/opticharger
+OPTICHARGER=$ANDROID_BUILD_TOP/vendor/cm/tools/opticharger
 QUIET=-q
 DELETE_BINS="applypatch applypatch_static check_prereq recovery updater"
 
@@ -80,13 +82,33 @@ mkdir $REPACK/ota
 cd $REPACK/ota
 printf "Unpacking $OTAPACKAGE..."
 unzip $QUIET $OTAPACKAGE
+
+# leo apps removal
+echo
+printf "leo has limited diskspace so lets remove some unwanted stuff..."
+
+rm -rf $REPACK/ota/system/media/video
+rm -rf $REPACK/ota/system/tts
+
+cd $REPACK/ota/system/app
+
+rm VideoEditor.apk
+rm RomManager.apk
+rm LiveWallpapers.apk
+rm Galaxy4.apk
+rm HoloSpiralWallpaper.apk
+rm MagicSmokeWallpapers.apk
+rm PhaseBeam.apk
+rm VisualizationWallpapers.apk
+rm CMWallpapers.apk
+
 echo
 cd $REPACK/ota/system/framework
 $OPTICHARGER framework-res.apk
 cd $REPACK/ota/system/app
+
 find ./ -name \*.apk | $XARGS $OPTICHARGER
 )
-
 
 if [ "$WANT_SQUASHFS" -eq 1 ]; then
 	squash_opts="-force-uid 1000 -force-gid 1000 -no-progress -noappend -no-exports -no-recovery"
@@ -123,11 +145,8 @@ $SED -i \
 	-e '/ro\.build\.type/s/eng/user/' \
 	$REPACK/ota/system/build.prop
 
-# Include device specific script
-if [ "$TARGET_PRODUCT" = "cyanogen_leo" ]; then
-        . $ANDROID_BUILD_TOP/device/htc/leo/releasetools/squisher.sh
-fi
-
+# include bootloader script for leo
+. $ANDROID_BUILD_TOP/device/htc/leo/releasetools/bootloader.sh
 
 # Delete unnecessary binaries
 ( cd $REPACK/ota/system/bin; echo $DELETE_BINS | xargs rm -f; )
@@ -143,13 +162,9 @@ rm -rf $REPACK/ota/recovery
 	find $REPACK/ota/system/lib/modules -name "*.ko" -print0 | xargs -0 arm-eabi-strip --strip-unneeded
 
 # Determine what to name the new signed package
-if [ -z "$CYANOGEN_NIGHTLY" ]; then
-	MODVERSION=`sed -n -e'/ro\.modversion/s/^.*CyanogenMod-//p' $REPACK/ota/system/build.prop`
-	: ${MODVERSION:=nightly}
-	OUTFILE=$OUT/update-cm-$MODVERSION-signed.zip
-else
-	OUTFILE=$OUT/update-squished.zip
-fi
+MODVERSION=`sed -n -e'/ro\.cm\.version/s/^.*=//p' $REPACK/ota/system/build.prop`
+OUTFILE=$OUT/cm-$MODVERSION.zip
+echo MODVERSION: $MODVERSION
 
 # Pack it up and sign
 printf "Zipping package..."
