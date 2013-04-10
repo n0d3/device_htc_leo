@@ -25,6 +25,11 @@ on init
     write /sys/class/android_usb/android0/functions adb
 
 on fs
+    wait /dev/block/mmcblk0p1
+    wait /dev/block/mmcblk0p1
+    wait /dev/block/mmcblk0p1
+    wait /dev/block/mmcblk0p1
+
 # Run the script that will edit recovery.fstab:
 # and set the proper fs-type for 'boot' partition,
 # depending on which bootloader is installed.
@@ -59,4 +64,3 @@ on property:service.adb.root=1
     write /sys/class/android_usb/android0/enable 0
     restart adbd
     write /sys/class/android_usb/android0/enable 1
-
